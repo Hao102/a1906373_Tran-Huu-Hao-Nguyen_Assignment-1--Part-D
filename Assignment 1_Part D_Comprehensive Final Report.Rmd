@@ -1,0 +1,300 @@
+---
+title: "Assignment 1_Part D_Comprehensive Final Report"
+author: "Tran Huu Hao Nguyen"
+date: "2025-08-15"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+# Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning = FALSE)
+
+
+# Set default CRAN mirror
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+```
+
+
+## loading the necessary packages
+
+
+```{r }
+#Load the required packages:
+install.packages(c("caret", "rpart", "rpart.plot", "randomForest", "ROCR", "e1071"))
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(ROCR)
+library(e1071)
+
+```
+
+
+## III.	Research Methodology:
+
+## Load the dataset:
+
+
+
+```{r }
+# Load CSV data
+data <- read.csv("enhanced_student_habits_performance_dataset.csv")
+data
+```
+
+
+## Explore data structure and summary:
+
+
+```{r }
+# Check structure and summary
+str(data)
+summary(data)
+
+```
+
+## a)	Phase 1: Data Pre-processing:
+
+## Check for missing values:
+
+
+```{r }
+# Check for any missing values
+colSums(is.na(data))
+# Expectation: all columns should return 0
+
+```
+
+
+
+##  Standardize continuous numeric variables:
+
+
+```{r }
+# Define numeric variables for scaling
+num_vars <- c("study_hours_per_day", "screen_time", "sleep_hours",
+              "exercise_frequency", "mental_health_rating", "stress_level",
+              "exam_anxiety_score", "parental_support_level", "previous_gpa",
+              "time_management_score")
+
+# Apply Z-score normalization
+data[num_vars] <- lapply(data[num_vars], scale)
+
+```
+
+
+## Handle outliers with winsorization:
+
+```{r }
+# Install DescTools package
+
+install.packages("DescTools")
+
+library(DescTools)
+
+
+# Custom Winsorization Function
+winsorize_manual <- function(x, lower = 0.01, upper = 0.99) {
+  qnt <- quantile(x, probs = c(lower, upper), na.rm = TRUE)
+  x[x < qnt[1]] <- qnt[1]
+  x[x > qnt[2]] <- qnt[2]
+  return(x)
+}
+
+# Apply to selected columns
+winsor_cols <- c("study_hours_per_day", "sleep_hours", "screen_time")
+
+for (col in winsor_cols) {
+  data[[col]] <- winsorize_manual(data[[col]])
+}
+
+```
+
+
+## b)	Phase 2: Feature Engineering:
+
+## Create binary target variable for classification:
+
+
+```{r }
+# Create a binary column for pass/fail (1 if exam_score >= 50)
+data$pass_exam <- ifelse(data$exam_score >= 50, 1, 0)
+
+```
+
+
+## Feature transformation and aggregation:
+
+
+```{r }
+# Remove non-predictive identifier
+data$student_id <- NULL
+
+# Drop screen-related sub-components since screen_time is already present
+data$social_media_hours <- NULL
+data$netflix_hours <- NULL
+
+
+```
+
+
+
+## Check: 
+
+```{r }
+# Check data structure and summary after preprocessing
+str(data)
+summary(data)
+
+```
+
+
+## c)	Phase 3: Model Selection:
+
+## d)	Phase 4: Model Training & Refinement:
+
+## IV.	Experimental Evaluation:
+
+
+
+We combine these steps to code them together to give a connection between the content of the research paper and the code here.
+
+
+The data set is divided into 80% training data and 20% testing data.
+
+
+
+```{r }
+install.packages(c("caret", "rpart", "rpart.plot", "randomForest", "ROCR", "e1071"))
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(ROCR)
+library(e1071)
+
+data <- read.csv("enhanced_student_habits_performance_dataset.csv")
+
+data$pass_exam <- ifelse(data$exam_score >= 50, 1, 0)
+
+
+# Train-test split (80% training / 20% testing)
+set.seed(123)
+split <- createDataPartition(data$pass_exam, p = 0.8, list = FALSE)
+train <- data[split, ]
+test <- data[-split, ]
+
+```
+
+
+
+
+1. Linear regression:
+
+
+
+```{r }
+lm_model <- lm(exam_score ~ study_hours_per_day + mental_health_rating + exam_anxiety_score + sleep_hours + screen_time,
+               data = train)
+lm_pred <- predict(lm_model, newdata = test)
+lm_rmse <- RMSE(lm_pred, test$exam_score)
+lm_r2 <- R2(lm_pred, test$exam_score)
+
+# Display results
+cat("🔹 Linear Regression:\n")
+cat("   RMSE:", round(lm_rmse, 2), "| R²:", round(lm_r2, 3), "\n\n")
+```
+
+
+
+2. Logistic regression:
+
+
+```{r }
+# Logistic Regression (predicting pass/fail)
+log_model <- glm(pass_exam ~ study_hours_per_day + mental_health_rating + stress_level + exam_anxiety_score + sleep_hours,
+                 data = train, family = "binomial")
+log_probs <- predict(log_model, newdata = test, type = "response")
+log_pred <- ifelse(log_probs > 0.5, 1, 0)
+log_conf <- confusionMatrix(factor(log_pred), factor(test$pass_exam))
+log_roc <- prediction(log_probs, test$pass_exam)
+log_auc <- performance(log_roc, "auc")@y.values[[1]]
+
+# Display results
+
+cat("🔹 Logistic Regression:\n")
+print(log_conf)
+cat("   AUC:", round(log_auc, 3), "\n\n")
+
+
+```
+
+
+
+3.	Decision tree: 
+
+
+
+```{r }
+install.packages("rpart.plot")   
+install.packages("caret")   
+library(caret)              
+library(rpart.plot)
+
+# Decision Tree (classification)
+tree_model <- rpart(pass_exam ~ study_hours_per_day + mental_health_rating + stress_level + exam_anxiety_score + sleep_hours,
+                    data = train, method = "class", cp = 0.01)
+tree_pred <- predict(tree_model, newdata = test, type = "class")
+tree_conf <- confusionMatrix(tree_pred, factor(test$pass_exam))
+
+
+install.packages("ROSE")
+library(ROSE)
+balanced_data <- ovun.sample(pass_exam ~ ., data = train, method = "over", N = 2*nrow(train))$data
+
+tree_model <- rpart(pass_exam ~ ., data = balanced_data, method = "class")
+rpart.plot(tree_model)
+
+
+# Display results
+
+cat("🔹 Decision Tree:\n")
+print(tree_conf)
+rpart.plot(tree_model)
+
+```
+
+
+
+
+4.	Random forest:
+
+
+
+
+```{r }
+install.packages("randomForest")  
+library(randomForest)              
+
+
+# Random Forest (classification)
+rf_model <- randomForest(factor(pass_exam) ~ study_hours_per_day + mental_health_rating + stress_level +
+                         exam_anxiety_score + sleep_hours + screen_time + parental_support_level,
+                         data = train, ntree = 300, mtry = 3, importance = TRUE)
+rf_pred <- predict(rf_model, newdata = test)
+rf_conf <- confusionMatrix(rf_pred, factor(test$pass_exam))
+rf_imp <- importance(rf_model)
+
+# Display results
+
+cat("🔹 Random Forest:\n")
+print(rf_conf)
+varImpPlot(rf_model)
+
+
+```
+
