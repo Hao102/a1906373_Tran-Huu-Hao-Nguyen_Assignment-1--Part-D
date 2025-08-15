@@ -82,7 +82,7 @@ Follow the steps below to replicate the analysis and generate the final report.
 
 ### **1. Clone the repository**
 ```bash
-git clone https://github.com/TranHuuHaoNguyen/Assignment-1-Part-D.git
+git clone https://github.com/Tran_Huu_Hao_Nguyen/Assignment-1-Part-D.git
 cd Assignment-1-Part-D
 2. Prepare the environment
 Option A: Using R and RStudio (Recommended)
@@ -128,7 +128,7 @@ Copy
 Edit
 pip install -r requirements.txt
 3. Place dataset
-Ensure that the dataset file student_habits.csv is placed inside the data/ folder.
+Ensure that the dataset file enhanced_student_habits_performance_dataset.csv is placed inside the data/ folder.
 
 4. Run the pipeline
 For R:
